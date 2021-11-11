@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sample CSV Upload</title>
+    <script type="text/javascript" src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
     <style>
         html {
             width: 100%;
             height: 100%;
         }
+
         body {
             background-color: beige;
             display: flex;
@@ -22,21 +25,130 @@
             border: 2px dashed black;
             padding: 1rem;
         }
+
+        .error {
+            color: red;
+            font-weight: bold;
+            display: none;
+        }
+
+        .prodIdDisplay {
+            padding: 0.5rem;
+            background: white;
+            border: 2px solid #e8e8e8;
+            min-height: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .noFileSelected {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .prodId {
+            color: brown;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
+
 <body>
     <main>
         <h1>Sample CSV Upload for Promotions</h1>
 
-        <label for="file">Select a CSV to import:</label>
-        <br />
-        <input type="file" id="file" onchange="checkfile(this);" accept=".csv" />
+        <form>
+            <label for="file">Select a CSV to import (limit: 1kB):</label>
+            <br />
+            <input type="file" id="file" onchange="checkfile(this);" accept=".csv" />
+            <br />
+            <p class="error">The file uploaded exceeds the size limit for CSV uploads. <br />Please upload a smaller
+                file.
+            </p>
+            <p class="error csvError"></p>
+            <section class="prodIdDisplay">
+                <p class="noFileSelected">No file selected</p>
+            </section>
+            <input type="reset" value="Reset the form" onclick="reset(this)">
+        </form>
     </main>
 
     <script>
-        function checkfile(file) {
-            console.log('checking...', file.value)
+        const errorNotifications = document.querySelectorAll('.error');
+        const prodIdDisplay = document.querySelector('.prodIdDisplay');
+        const noFileSelectedText = document.querySelector('.noFileSelected');
+        const errorNotification = document.querySelector('.error');
+        const csvError = document.querySelector('.csvError');
+        const form = document.querySelector('form');
+
+        function displayError(errorMessage = null) {
+            prodIdDisplay.style.display = 'none';
+            if (errorMessage) {
+                csvError.style.display = 'block';
+                csvError.innerHTML = errorMessage;
+            } else {
+                errorNotification.style.display = 'block';
+            }
         }
+
+        function initDisplay() {
+            errorNotifications.forEach(errorNotification => errorNotification.style.display = 'none');
+            prodIdDisplay.style.display = 'block';
+            noFileSelectedText.style.display = 'block';
+
+            const allProdIds = document.querySelectorAll('.prodId');
+            allProdIds.forEach(id => id.remove());
+        }
+
+        function hasFileExceedLimit(size) {
+            return size > 1024;
+        }
+
+        function renderProdIds(prodIIds) {
+            noFileSelectedText.style.display = 'none';
+
+            prodIIds.forEach(id => {
+                const prodIdNode = document.createElement('p');
+                prodIdNode.classList.add('prodId');
+                prodIdNode.appendChild(document.createTextNode(id));
+                prodIdDisplay.appendChild(prodIdNode);
+            });
+        }
+
+        function reset(e) {
+            initDisplay();
+        }
+
+        function checkfile(file) {
+            initDisplay();
+            const [firstFile] = file.files;
+            const { name, size } = firstFile;
+
+            if (hasFileExceedLimit(size)) {
+                displayError();
+                return;
+            }
+
+            Papa.parse(firstFile, {
+                delimiter: ',',
+                header: false,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    if (results.errors.length > 0) {
+                        const [firstError] = results.errors;
+                        displayError(firstError.message);
+                        return;
+                    }
+
+                    const flatProdIds = results.data.flatMap(i => i[0]);
+                    renderProdIds(flatProdIds);
+                    console.log('done parsing', flatProdIds)
+                }
+            })
+        }
+
+        form.addEventListener('reset', reset);
     </script>
 </body>
+
 </html>
